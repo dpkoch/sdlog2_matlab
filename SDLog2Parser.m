@@ -28,6 +28,8 @@ classdef SDLog2Parser < handle
         ptr
         
         formats
+        
+        log
     end
     
     methods
@@ -65,6 +67,8 @@ classdef SDLog2Parser < handle
             
             self.buffer = zeros(1,0,'uint8');
             self.ptr = 1;
+            
+            self.log = struct;
         end
         
         function process(self, fn)
@@ -129,7 +133,7 @@ classdef SDLog2Parser < handle
         end
         
         function parseMsgDescr(self)
-            data = self.unpack(self.MSG_FORMAT_STRUCT, self.buffer(self.ptr+3 : self.ptr+self.MSG_FORMAT_PACKET_LEN));
+            data = self.unpack(self.MSG_FORMAT_STRUCT, self.buffer(self.ptr+self.MSG_HEADER_LEN : self.ptr+self.MSG_FORMAT_PACKET_LEN-1));
             msg_type = uint16(data{1});
             if msg_type ~= self.MSG_TYPE_FORMAT;
                 msg_length = double(data{2});
@@ -149,7 +153,26 @@ classdef SDLog2Parser < handle
         end
         
         function parseMsg(self, msg_descr)
-            %TODO unpack message
+            data = self.unpack(msg_descr.format, self.buffer(self.ptr+self.MSG_HEADER_LEN : self.ptr+msg_descr.length-1));
+            if isfield(self.log, msg_descr.name)
+                for i=1:length(data)
+                    if strcmp(self.formats(msg_descr.format(i)).class, 'char')
+                        self.log.(msg_descr.name).(msg_descr.labels{i}){end+1,1} = data{i};
+                    else
+                        self.log.(msg_descr.name).(msg_descr.labels{i}) = ...
+                            [self.log.(msg_descr.name).(msg_descr.labels{i});
+                            data{i}];
+                    end
+                end
+            else
+                self.log.(msg_descr.name) = cell2struct(data, msg_descr.labels, 2);
+                for i=1:length(data)
+                    if strcmp(self.formats(msg_descr.format(i)).class, 'char')
+                        self.log.(msg_descr.name).(msg_descr.labels{i}) = data(i);
+                    end
+                end
+            end
+            
             self.ptr = self.ptr + msg_descr.length;
         end
         
