@@ -2,19 +2,27 @@ function log = sdlog2matlab(filename, direction)
 %SDLOG2MATLAB Parse PX4 binary log file
 %   SDLOG2MATLAB(FILENAME) returns the parsed log data as a structure.
 %   SDLOG2MATLAB(FILENAME,DIR) allows you to specify whether the data is
-%   returned as row (DIR='row', the default) or column (DIR='col') vectors.
+%   returned as row (DIR='row') or column (DIR='col', the default) vectors.
 
 if nargin < 2
-    direction = 'row';
+    direction = 'col';
 end
 
-% add current folder to python search path
-if count(py.sys.path,'') == 0
-    insert(py.sys.path,int32(0),'');
+if verLessThan('matlab', '8.4') % python only supported since r2014b
+    warning('Python only supported since R2014b (Version 8.4); falling back to MATLAB parser. This will work, but may take up to several minutes.')
+    parser = SDLog2Parser;
+    parser.setTimeMsg('TIME');
+    log = parser.process(filename);
+else
+    % add current folder to python search path
+    if count(py.sys.path,'') == 0
+        insert(py.sys.path,int32(0),'');
+    end
+    
+    pylog = py.sdlog2.parseLog(py.str(filename));
+    log = python2matlab(pylog, direction);
 end
 
-pylog = py.sdlog2.parseLog(py.str(filename));
-log = python2matlab(pylog, direction);
 log = normalizetime(log, 'TIME__', 'time__');
 
 end
@@ -46,6 +54,7 @@ function matlab = python2matlab(python, direction)
 end
 
 function log = normalizetime(log, raw_name, norm_name)
+%NORMALIZETIME Remove time offset and convert to seconds
     starttime = log.TIME.StartTime(1);
     names = fieldnames(log);
     for i=1:length(names)
