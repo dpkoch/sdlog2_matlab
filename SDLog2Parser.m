@@ -18,6 +18,7 @@ classdef SDLog2Parser < handle
         MSG_FORMAT_STRUCT = 'BBnNZ'
         MSG_TYPE_FORMAT = hex2dec('80')
         
+        time_msg = '';
         correct_errors = false;
         
         msg_descrs
@@ -29,6 +30,7 @@ classdef SDLog2Parser < handle
         
         formats
         
+        last_time
         log
     end
     
@@ -68,10 +70,15 @@ classdef SDLog2Parser < handle
             self.buffer = zeros(1,0,'uint8');
             self.ptr = 1;
             
+            self.last_time = [];
             self.log = struct;
         end
         
-        function process(self, fn)
+        function setTimeMsg(self, time_msg)
+            self.time_msg = time_msg;
+        end
+        
+        function log = process(self, fn)
             self.reset()
             
             f = fopen(fn, 'r');
@@ -126,6 +133,7 @@ classdef SDLog2Parser < handle
             end
             
             fclose(f);
+            log = self.log;
         end
         
         function bytes = bytesLeft(self)
@@ -154,22 +162,33 @@ classdef SDLog2Parser < handle
         
         function parseMsg(self, msg_descr)
             data = self.unpack(msg_descr.format, self.buffer(self.ptr+self.MSG_HEADER_LEN : self.ptr+msg_descr.length-1));
-            if isfield(self.log, msg_descr.name)
+            % initialize message struct
+            if ~isfield(self.log, msg_descr.name)
                 for i=1:length(data)
                     if strcmp(self.formats(msg_descr.format(i)).class, 'char')
-                        self.log.(msg_descr.name).(msg_descr.labels{i}){end+1,1} = data{i};
+                        self.log.(msg_descr.name).(msg_descr.labels{i}) = {};
                     else
-                        self.log.(msg_descr.name).(msg_descr.labels{i}) = ...
-                            [self.log.(msg_descr.name).(msg_descr.labels{i});
-                            data{i}];
+                        self.log.(msg_descr.name).(msg_descr.labels{i}) = []; % convert all numeric types to double
                     end
                 end
+                if ~isempty(self.time_msg) && ~strcmp(msg_descr.name, self.time_msg) && ~isempty(self.last_time)
+                    self.log.(msg_descr.name).([self.time_msg '__']) = [];
+                end
+            end
+            % store data
+            for i=1:length(data)
+                if strcmp(self.formats(msg_descr.format(i)).class, 'char')
+                    self.log.(msg_descr.name).(msg_descr.labels{i}){end+1,1} = data{i};
+                else
+                    self.log.(msg_descr.name).(msg_descr.labels{i})(end+1,1) = data{i};
+                end
+            end
+            % handle time messages
+            if ~isempty(self.time_msg) && strcmp(msg_descr.name, self.time_msg)
+                self.last_time = data{1};
             else
-                self.log.(msg_descr.name) = cell2struct(data, msg_descr.labels, 2);
-                for i=1:length(data)
-                    if strcmp(self.formats(msg_descr.format(i)).class, 'char')
-                        self.log.(msg_descr.name).(msg_descr.labels{i}) = data(i);
-                    end
+                if isfield(self.log.(msg_descr.name), [self.time_msg '__'])
+                    self.log.(msg_descr.name).([self.time_msg '__'])(end+1,1) = self.last_time;
                 end
             end
             
