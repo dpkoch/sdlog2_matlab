@@ -1,29 +1,51 @@
-function log = sdlog2matlab(filename, direction)
+function log = sdlog2matlab(filename, varargin)
 %SDLOG2MATLAB Parse PX4 binary log file
 %   SDLOG2MATLAB(FILENAME) returns the parsed log data as a structure.
-%   SDLOG2MATLAB(FILENAME,DIR) allows you to specify whether the data is
-%   returned as row (DIR='row') or column (DIR='col', the default) vectors.
+%   
+%   The FILENAME can be argument can be followed by parameter/value pairs
+%   to specify the following additional options:
+%   
+%   Parameter   Default     Description
+%   =========   =======     ======
+%   timeMsg     'TIME'      Name of the time message for the log file.
+%                           Specifying the empty string '' disables
+%                           indexing by time.
 
-if nargin < 2
-    direction = 'col';
+% parse function inputs
+p = inputParser;
+p.FunctionName = 'sdlog2matlab';
+p.CaseSensitive = false;
+p.KeepUnmatched = false;
+p.PartialMatching = true;
+p.StructExpand = true;
+
+p.addRequired('filename', @ischar)
+p.addParameter('timeMsg', 'TIME', @ischar)
+p.addParameter('direction', 'column', @(x) any(validatestring(x,{'column','row'},'sdlog2matlab','direction')))
+
+p.parse(filename, varargin{:})
+
+if ~exist(p.Results.filename, 'file')
+    error('The file ''%s'' does not exist', p.Results.filename)
 end
 
-if verLessThan('matlab', '8.4') % python only supported since r2014b
+% process log file
+if verLessThan('matlab', '8.4') % python only supported since R2014b
     warning('Python only supported since R2014b (Version 8.4); falling back to MATLAB parser. This will work, but may take up to several minutes.')
     parser = SDLog2Parser;
-    parser.setTimeMsg('TIME');
-    log = parser.process(filename);
+    parser.setTimeMsg(p.Results.timeMsg);
+    log = parser.process(p.Results.filename);
 else
     % add current folder to python search path
     if count(py.sys.path,'') == 0
         insert(py.sys.path,int32(0),'');
     end
     
-    pylog = py.sdlog2.parseLog(py.str(filename));
-    log = python2matlab(pylog, direction);
+    pylog = py.sdlog2.parseLog(py.str(p.Results.filename), py.str(p.Results.timeMsg));
+    log = python2matlab(pylog, p.Results.direction);
 end
 
-log = normalizetime(log, 'TIME__', 'time__');
+log = normalizetime(log, [p.Results.timeMsg '__'], [lower(p.Results.timeMsg) '__']);
 
 end
 
@@ -43,7 +65,7 @@ function matlab = python2matlab(python, direction)
             catch
                 matlab = cellfun(@char, raw, 'UniformOutput', false);
             end
-            if strcmp(direction, 'col')
+            if strcmp(direction, 'column')
                 matlab = matlab.';
             end
         case class(py.str)
