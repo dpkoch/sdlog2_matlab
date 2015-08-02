@@ -71,7 +71,6 @@ class SDLog2Parser:
     
     def process(self, fn):
         self.reset()
-        first_data_msg = True
         f = open(fn, "rb")
         bytes_read = 0
         while True:
@@ -103,8 +102,6 @@ class SDLog2Parser:
                     msg_length = msg_descr[0]
                     if self.__bytesLeft() < msg_length:
                         break
-                    if first_data_msg:
-                        first_data_msg = False
                     self.__parseMsg(msg_descr)
             bytes_read += self.__ptr
         f.close()
