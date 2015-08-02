@@ -21,7 +21,6 @@ p.StructExpand = true;
 
 p.addRequired('filename', @ischar)
 p.addParameter('timeMsg', 'TIME', @ischar)
-p.addParameter('direction', 'column', @(x) any(validatestring(x,{'column','row'},'sdlog2matlab','direction')))
 
 p.parse(filename, varargin{:})
 
@@ -42,31 +41,28 @@ else
     end
     
     pylog = py.sdlog2.parseLog(py.str(p.Results.filename), py.str(p.Results.timeMsg));
-    log = python2matlab(pylog, p.Results.direction);
+    log = python2matlab(pylog);
 end
 
 log = normalizetime(log, [p.Results.timeMsg '__'], [lower(p.Results.timeMsg) '__']);
 
 end
 
-function matlab = python2matlab(python, direction)
+function matlab = python2matlab(python)
 %PYTHON2MATLAB Recursively convert python data types to matlab data types
     switch class(python)
         case class(py.dict)
             matlab = struct(python);
             names = fieldnames(matlab);
             for i=1:length(names)
-                matlab.(names{i}) = python2matlab(matlab.(names{i}), direction);
+                matlab.(names{i}) = python2matlab(matlab.(names{i}));
             end
         case class(py.list)
             raw = cell(python);
             try
-                matlab = cellfun(@double, raw);
+                matlab = cellfun(@double, raw).';
             catch
-                matlab = cellfun(@char, raw, 'UniformOutput', false);
-            end
-            if strcmp(direction, 'column')
-                matlab = matlab.';
+                matlab = cellfun(@char, raw, 'UniformOutput', false).';
             end
         case class(py.str)
             matlab = char(python);
