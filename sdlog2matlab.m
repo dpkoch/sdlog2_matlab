@@ -5,11 +5,12 @@ function log = sdlog2matlab(filename, varargin)
 %   The FILENAME can be argument can be followed by parameter/value pairs
 %   to specify the following additional options:
 %   
-%   Parameter   Default     Description
-%   =========   =======     ======
-%   timeMsg     'TIME'      Name of the time message for the log file.
-%                           Specifying the empty string '' disables
-%                           indexing by time.
+%   Parameter       Default     Description
+%   =========       =======     ======
+%   timeMsg         'TIME'      Name of the time message for the log file.
+%                               Specifying the empty string '' disables
+%                               indexing by time.
+%   correctErrors   false       Recover from errors in binary log file
 
 % parse function inputs
 p = inputParser;
@@ -21,6 +22,7 @@ p.StructExpand = true;
 
 p.addRequired('filename', @ischar)
 p.addParameter('timeMsg', 'TIME', @ischar)
+p.addParameter('correctErrors', false, @(x) isscalar(x) && islogical(x))
 
 p.parse(filename, varargin{:})
 
@@ -33,6 +35,7 @@ if verLessThan('matlab', '8.4') % python only supported since R2014b
     warning('Python only supported since R2014b (Version 8.4); falling back to MATLAB parser. This will work, but may take up to several minutes.')
     parser = SDLog2Parser;
     parser.setTimeMsg(p.Results.timeMsg);
+    parser.setCorrectErrors(p.Results.correctErrors);
     log = parser.process(p.Results.filename);
 else
     % add current folder to python search path
@@ -40,7 +43,10 @@ else
         insert(py.sys.path,int32(0),'');
     end
     
-    pylog = py.sdlog2.parseLog(py.str(p.Results.filename), py.str(p.Results.timeMsg));
+    pylog = py.sdlog2.parseLog(...
+        py.str(p.Results.filename),...
+        py.str(p.Results.timeMsg),...
+        py.bool(p.Results.correctErrors));
     log = python2matlab(pylog);
 end
 

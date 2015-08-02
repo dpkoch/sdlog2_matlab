@@ -78,6 +78,10 @@ classdef SDLog2Parser < handle
             self.time_msg = time_msg;
         end
         
+        function setCorrectErrors(self, correct_errors)
+            self.correct_errors = correct_errors;
+        end
+        
         function log = process(self, fn)
             self.reset()
             

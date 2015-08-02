@@ -175,9 +175,8 @@ class SDLog2Parser:
                     self.__log[msg_name][self.__time_msg + "__"].append(self.__last_time)
         self.__ptr += msg_length
 
-def parseLog(filename, time_msg):
+def parseLog(filename, time_msg, correct_errors):
     """Parse a PX4 binary log file and return data as a dict"""
-    correct_errors = False
     msg_filter = []
 
     parser = SDLog2Parser()
